@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# colcon / ament
+build/
+install/
+log/
+
+# Editores / SO
+.vscode/
+.idea/
+*.swp
+.DS_Store

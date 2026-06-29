@@ -1,0 +1,124 @@
+"""
+joint_tab.py — Pestaña "Articular" (Requisitos 1 y 2).
+
+Cinco sliders circulares (joint1..4 + gripper). Un conmutador permite intercalar:
+  - EN VIVO        : cada cambio de slider comanda el robot real.
+  - PREVISUALIZAR  : los sliders solo mueven el modelo en RViz (/joint_states_preview);
+                     un botón "Enviar al robot real" comanda la configuración mostrada.
+"""
+
+import math
+
+from PyQt5.QtWidgets import (QButtonGroup, QGridLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget)
+
+from .. import config
+from .circular_slider import CircularSlider
+
+
+class JointTab(QWidget):
+    def __init__(self, ros, parent=None):
+        super().__init__(parent)
+        self.ros = ros
+        self._last_state = {}
+
+        # --- sliders -------------------------------------------------------
+        self.sliders = {}
+        sliders_row = QHBoxLayout()
+        for i, name in enumerate(config.JOINT_NAMES):
+            lo, hi = config.joint_limits()[name]
+            s = CircularSlider(
+                f'J{i + 1}\n[{math.degrees(lo):.0f}°, {math.degrees(hi):.0f}°]',
+                lo, hi, fmt=lambda v: f'{math.degrees(v):+.1f}°')
+            s.valueChanged.connect(self._on_change)
+            self.sliders[name] = s
+            sliders_row.addWidget(s)
+
+        glo, ghi = sorted(config.GRIPPER_PRISMATIC)
+        gs = CircularSlider('Gripper\n[cerrado/abierto]', glo, ghi,
+                            fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %')
+        gs.valueChanged.connect(self._on_change)
+        self.sliders['gripper'] = gs
+        sliders_row.addWidget(gs)
+
+        sliders_box = QGroupBox('Sliders articulares')
+        sliders_box.setLayout(sliders_row)
+
+        # --- modo en vivo / preview ---------------------------------------
+        self.rb_live = QRadioButton('En vivo (comanda el robot real)')
+        self.rb_preview = QRadioButton('Previsualizar (solo modelo RViz)')
+        self.rb_live.setChecked(True)
+        group = QButtonGroup(self)
+        group.addButton(self.rb_live)
+        group.addButton(self.rb_preview)
+        self.rb_live.toggled.connect(self._on_mode_toggle)
+
+        self.btn_send = QPushButton('➤  Enviar al robot real')
+        self.btn_send.clicked.connect(self._send_to_robot)
+        self.btn_send.setEnabled(False)
+        self.btn_send.setStyleSheet('font-weight: bold; padding: 8px;')
+
+        self.btn_sync = QPushButton('⟳  Sincronizar sliders con el robot')
+        self.btn_sync.clicked.connect(self.sync_to_robot)
+
+        mode_box = QGroupBox('Modo')
+        mode_lay = QGridLayout(mode_box)
+        mode_lay.addWidget(self.rb_live, 0, 0)
+        mode_lay.addWidget(self.rb_preview, 1, 0)
+        mode_lay.addWidget(self.btn_sync, 0, 1)
+        mode_lay.addWidget(self.btn_send, 1, 1)
+
+        self.hint = QLabel('En vivo: mover un slider mueve el robot. '
+                           'Previsualizar: ajusta y pulsa «Enviar al robot real».')
+        self.hint.setWordWrap(True)
+        self.hint.setStyleSheet('color: #555;')
+
+        root = QVBoxLayout(self)
+        root.addWidget(sliders_box)
+        root.addWidget(mode_box)
+        root.addWidget(self.hint)
+        root.addStretch(1)
+
+    # ------------------------------------------------------------------
+    def _arm_q(self):
+        return [self.sliders[n].value() for n in config.JOINT_NAMES]
+
+    def _gripper_m(self):
+        return self.sliders['gripper'].value()
+
+    def _is_live(self):
+        return self.rb_live.isChecked()
+
+    def _on_change(self, _value):
+        if self._is_live():
+            self.ros.send_arm(self._arm_q())
+            self.ros.send_gripper_m(self._gripper_m())
+        else:
+            self.ros.publish_preview(self._arm_q(), self._gripper_m())
+
+    def _on_mode_toggle(self, live):
+        self.btn_send.setEnabled(not live)
+        if live:
+            self.ros.set_mode(config.MODE_POSITION)
+        else:
+            # Mostrar de inmediato la configuración actual en el modelo preview.
+            self.ros.publish_preview(self._arm_q(), self._gripper_m())
+
+    def _send_to_robot(self):
+        self.ros.set_mode(config.MODE_POSITION)
+        self.ros.send_arm(self._arm_q())
+        self.ros.send_gripper_m(self._gripper_m())
+
+    # ------------------------------------------------------------------
+    def on_state(self, state):
+        """Recibe el último /joint_states (lo guarda para 'sincronizar')."""
+        self._last_state = dict(state)
+
+    def sync_to_robot(self):
+        for name in config.JOINT_NAMES:
+            if name in self._last_state:
+                self.sliders[name].set_value_silent(self._last_state[name])
+        if config.GRIPPER_JOINT in self._last_state:
+            self.sliders['gripper'].set_value_silent(self._last_state[config.GRIPPER_JOINT])
+        if not self._is_live():
+            self.ros.publish_preview(self._arm_q(), self._gripper_m())

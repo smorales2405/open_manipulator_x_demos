@@ -1,0 +1,17 @@
+# joint_limits.yaml — REFERENCIA / documentación.
+#
+# La fuente de verdad de los límites en tiempo de ejecución es
+# open_manipulator_x_interface/config.py (JOINT_LIMITS). Este archivo solo
+# documenta los valores y sirve de plantilla si en el futuro se decide cargarlos
+# desde YAML. Valores [rad], tomados del URDF open_manipulator_x.urdf.xacro.
+
+joint_limits:
+  joint1: {min: -3.14159, max:  3.14159}   # ±180°
+  joint2: {min: -1.50,    max:  1.50}
+  joint3: {min: -1.50,    max:  1.40}
+  joint4: {min: -1.70,    max:  1.97}
+
+gripper:
+  # Apertura prismática [m] (cerrado, abierto) y motor revoluto equivalente [rad]
+  prismatic: {closed: -0.010, open: 0.019}
+  motor_rad: {closed:  0.92,  open: -1.52}
