@@ -138,24 +138,44 @@ class RosInterface(QObject):
                 f.result().message if f.result() else f'{label}: sin respuesta'))
 
     # -- salida: trayectoria de waypoints -------------------------------
-    def execute_trajectory(self, waypoints):
+    def execute_trajectory(self, waypoints, start_gripper=config.GRIPPER_CLOSED_M):
         """
+        Construye la trayectoria de modo que en CADA waypoint el gripper se mueva
+        DESPUÉS de que el brazo llegue a la configuración articular (no a la vez).
+
+        Cada waypoint se parte en dos puntos:
+          A) brazo -> q (durante wp['time']); el gripper se MANTIENE en su valor previo.
+          B) si hay acción de gripper, el brazo queda quieto en q y el gripper actúa
+             (durante config.GRIPPER_ACTION_TIME_S).
+
         waypoints: lista de dicts con claves:
             'q'        -> [q1,q2,q3,q4]   [rad]
-            'gripper'  -> apertura [m]
+            'gripper'  -> apertura [m]  o  None ("mantener", sin acción)
             'time'     -> tiempo (s) para llegar desde el waypoint anterior
+        start_gripper: apertura [m] actual del robot (estado inicial del gripper).
         """
         traj = JointTrajectory()
         traj.joint_names = list(config.JOINT_NAMES) + [config.GRIPPER_JOINT]
         t_acc = 0.0
+        prev_grip = float(start_gripper)
         for wp in waypoints:
+            # Fase A: el brazo llega a q; el gripper se mantiene en prev_grip.
             t_acc += max(0.1, float(wp.get('time', 2.0)))
-            pt = JointTrajectoryPoint()
-            pt.positions = [float(wp['q'][0]), float(wp['q'][1]),
-                            float(wp['q'][2]), float(wp['q'][3]),
-                            float(wp.get('gripper', config.GRIPPER_CLOSED_M))]
-            sec = int(t_acc)
-            pt.time_from_start = Duration(sec=sec, nanosec=int((t_acc - sec) * 1e9))
-            traj.points.append(pt)
+            traj.points.append(self._traj_point(wp['q'], prev_grip, t_acc))
+            # Fase B: una vez llegado, el gripper actúa (si hay cambio real).
+            target = wp.get('gripper', None)
+            if target is not None and abs(float(target) - prev_grip) > 1e-4:
+                t_acc += config.GRIPPER_ACTION_TIME_S
+                traj.points.append(self._traj_point(wp['q'], float(target), t_acc))
+                prev_grip = float(target)
         self.pub_traj.publish(traj)
-        self.status_message.emit(f'Trayectoria enviada: {len(waypoints)} waypoints.')
+        self.status_message.emit(
+            f'Trayectoria enviada: {len(waypoints)} waypoints '
+            f'(gripper al final de cada uno).')
+
+    def _traj_point(self, q, gripper_m, t):
+        pt = JointTrajectoryPoint()
+        pt.positions = [float(q[0]), float(q[1]), float(q[2]), float(q[3]), float(gripper_m)]
+        sec = int(t)
+        pt.time_from_start = Duration(sec=sec, nanosec=int((t - sec) * 1e9))
+        return pt

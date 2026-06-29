@@ -6,7 +6,9 @@ Flujo de taller:
   2) Mover el robot a mano y pulsar "Guardar waypoint" en cada pose deseada
      (se captura la configuración articular + acción del gripper).
   3) "Ejecutar trayectoria" -> el robot recupera torque y recorre todos los
-     waypoints en orden, accionando el gripper en cada uno.
+     waypoints en orden. En cada waypoint, el gripper actúa AL FINAL: primero el
+     brazo llega a la configuración articular y, una vez ahí, se abre/cierra el
+     gripper (no simultáneamente). "Gripper: mantener" no acciona el gripper.
 """
 
 import math
@@ -120,7 +122,7 @@ class TeachTab(QWidget):
             return config.GRIPPER_OPEN_M
         if choice == 2:
             return config.GRIPPER_CLOSED_M
-        return self._last_state.get(config.GRIPPER_JOINT, config.GRIPPER_CLOSED_M)
+        return None   # "mantener": sin acción de gripper en este waypoint
 
     def _save_waypoint(self):
         if not all(n in self._last_state for n in config.JOINT_NAMES):
@@ -136,8 +138,11 @@ class TeachTab(QWidget):
         self.list.clear()
         for i, wp in enumerate(self._waypoints):
             degs = ' '.join(f'{math.degrees(v):+.0f}' for v in wp['q'])
-            pct = config.gripper_m_to_percent(wp['gripper'])
-            self.list.addItem(f'WP{i + 1}:  [{degs}]°   grip {pct:.0f}%   t={wp["time"]:.1f}s')
+            if wp['gripper'] is None:
+                grip = 'gripper: mantener'
+            else:
+                grip = f'gripper {config.gripper_m_to_percent(wp["gripper"]):.0f}%'
+            self.list.addItem(f'WP{i + 1}:  [{degs}]°   {grip}   t={wp["time"]:.1f}s')
 
     def _selected(self):
         row = self.list.currentRow()
@@ -171,7 +176,8 @@ class TeachTab(QWidget):
         if self._teach_on:
             self.btn_teach.setChecked(False)
             self._toggle_teach(False)
-        self.ros.execute_trajectory(self._waypoints)
+        start_grip = self._last_state.get(config.GRIPPER_JOINT, config.GRIPPER_CLOSED_M)
+        self.ros.execute_trajectory(self._waypoints, start_grip)
 
     # -- archivo --------------------------------------------------------
     def _save_file(self):
@@ -183,7 +189,7 @@ class TeachTab(QWidget):
         if not path:
             return
         data = {'waypoints': [{'q': [float(v) for v in wp['q']],
-                               'gripper': float(wp['gripper']),
+                               'gripper': (None if wp['gripper'] is None else float(wp['gripper'])),
                                'time': float(wp['time'])} for wp in self._waypoints]}
         with open(path, 'w') as f:
             yaml.safe_dump(data, f, sort_keys=False)
@@ -200,7 +206,7 @@ class TeachTab(QWidget):
         with open(path) as f:
             data = yaml.safe_load(f) or {}
         self._waypoints = [{'q': list(wp['q']),
-                            'gripper': float(wp.get('gripper', config.GRIPPER_CLOSED_M)),
+                            'gripper': (None if wp.get('gripper') is None else float(wp['gripper'])),
                             'time': float(wp.get('time', 2.5))}
                            for wp in data.get('waypoints', [])]
         self._refresh_list()

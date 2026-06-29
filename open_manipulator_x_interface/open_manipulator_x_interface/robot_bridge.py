@@ -262,6 +262,11 @@ class RobotBridge(Node):
         times, arm, grip = [], [], []
         prev_arm = list(self.meas_arm)
         prev_grip = self.meas_grip_m
+        # Punto inicial en t=0 con el estado actual: la interpolación arranca desde
+        # la pose real (evita saltos/extrapolación en el primer tramo).
+        times.append(0.0)
+        arm.append(list(prev_arm))
+        grip.append(prev_grip)
         for pt in msg.points:
             t = pt.time_from_start.sec + pt.time_from_start.nanosec * 1e-9
             a = list(prev_arm)
@@ -293,9 +298,10 @@ class RobotBridge(Node):
         times = self._traj['times']
         arm = self._traj['arm']
         grip = self._traj['grip']
+        glo, ghi = sorted(config.GRIPPER_PRISMATIC)
         if te >= times[-1]:
             self.target_arm = list(arm[-1])
-            self.target_grip_m = grip[-1]
+            self.target_grip_m = max(glo, min(ghi, grip[-1]))
             self._cancel_traj()
             return
         # localizar segmento [k, k+1]
@@ -305,7 +311,7 @@ class RobotBridge(Node):
         t0, t1 = times[k], times[k + 1]
         s = 0.0 if t1 <= t0 else (te - t0) / (t1 - t0)
         self.target_arm = [arm[k][i] + s * (arm[k + 1][i] - arm[k][i]) for i in range(4)]
-        self.target_grip_m = grip[k] + s * (grip[k + 1] - grip[k])
+        self.target_grip_m = max(glo, min(ghi, grip[k] + s * (grip[k + 1] - grip[k])))
 
     def _now_s(self):
         return self.get_clock().now().nanoseconds * 1e-9

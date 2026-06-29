@@ -192,6 +192,7 @@ RATE_HZ = 50.0
 MAX_JOINT_SPEED = 1.5          # rad/s (brazo)
 MAX_GRIPPER_SPEED_M = 0.04     # m/s   (gripper)
 HOME_TIME_S = 3.0              # duración del movimiento "ir a cero"
+GRIPPER_ACTION_TIME_S = 1.0    # duración de abrir/cerrar el gripper en cada waypoint
 
 # ---------------------------------------------------------------------------
 # Jog cartesiano y teclas
