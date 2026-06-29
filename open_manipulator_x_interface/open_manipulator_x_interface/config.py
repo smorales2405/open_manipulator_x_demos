@@ -198,6 +198,7 @@ HOME_TIME_S = 3.0              # duración del movimiento "ir a cero"
 # ---------------------------------------------------------------------------
 CART_STEP_M = 0.005            # paso por pulsación [m] (5 mm)
 GRIPPER_STEP_M = 0.004         # paso del gripper por pulsación [m]
+CART_JOG_INTERVAL_MS = 70      # ritmo del jog continuo al MANTENER una tecla [ms]
 
 # Tópicos / servicios (solo interfaces estándar)
 TOPIC_JOINT_STATES = '/joint_states'

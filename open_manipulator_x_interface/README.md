@@ -98,7 +98,9 @@ ros2 launch open_manipulator_x_interface interface.launch.py port_name:=/dev/tty
 | `Q`/`E` | +Z / −Z | | `H` | ir a cero |
 | `Espacio` | STOP |  |  |  |
 
-(Se editan en `config.py → KEYMAP`.)
+**Mantén presionada** una tecla de movimiento (W/S/A/D/Q/E) para jog continuo;
+se pueden combinar (p. ej. W+Q) para diagonales. El ritmo se ajusta con
+`config.CART_JOG_INTERVAL_MS`. (Las teclas se editan en `config.py → KEYMAP`.)
 
 ---
 

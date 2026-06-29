@@ -11,7 +11,7 @@ Disposición:
 
 import time
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import QEvent, Qt, QTimer
 from PyQt5.QtWidgets import (QHBoxLayout, QLabel, QMainWindow, QPushButton,
                              QTabWidget, QVBoxLayout, QWidget)
 
@@ -88,6 +88,9 @@ class MainWindow(QMainWindow):
             lambda live: self._set_mode_label('POSICIÓN' if live else 'PREVIEW'))
         self.teach_tab.btn_teach.toggled.connect(
             lambda on: self._set_mode_label('TEACH (libre)' if on else 'POSICIÓN'))
+        # Al cambiar de pestaña, corta cualquier jog continuo del modo cartesiano.
+        self.tabs.currentChanged.connect(
+            lambda _i: self.cartesian_tab.stop_continuous())
 
         # --- watchdog de conexión -----------------------------------------
         self._conn_timer = QTimer(self)
@@ -143,10 +146,27 @@ class MainWindow(QMainWindow):
             self.ros.stop()
             return
         if self.tabs.currentWidget() is self.cartesian_tab:
-            self.cartesian_tab.handle_key(key_name)
-            return
+            if self.cartesian_tab.key_pressed(key_name):
+                return
         super().keyPressEvent(event)
 
+    def keyReleaseEvent(self, event):
+        # Ignora los 'release' del auto-repeat del SO; solo cuenta el real.
+        if event.isAutoRepeat():
+            return
+        key_name = 'Space' if event.key() == Qt.Key_Space else event.text().upper()
+        if key_name and self.tabs.currentWidget() is self.cartesian_tab:
+            self.cartesian_tab.key_released(key_name)
+            return
+        super().keyReleaseEvent(event)
+
+    def changeEvent(self, event):
+        # Si la ventana pierde el foco con una tecla mantenida, detén el jog.
+        if event.type() == QEvent.WindowDeactivate:
+            self.cartesian_tab.stop_continuous()
+        super().changeEvent(event)
+
     def closeEvent(self, event):
+        self.cartesian_tab.stop_continuous()
         self.ros.shutdown()
         super().closeEvent(event)
