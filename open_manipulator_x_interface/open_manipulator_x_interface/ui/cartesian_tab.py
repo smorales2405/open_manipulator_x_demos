@@ -95,6 +95,7 @@ class CartesianTab(QWidget):
     def _mk_btn(self, grid, text, row, col, direction):
         b = QPushButton(text)
         b.setMinimumHeight(40)
+        b.setStyleSheet('font-weight: bold; font-size: 13px;')
         b.clicked.connect(lambda: self._jog_once(direction))
         grid.addWidget(b, row, col)
 

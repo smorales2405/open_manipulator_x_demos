@@ -36,24 +36,25 @@ class MainWindow(QMainWindow):
         self.mode_label = QLabel('Modo: POSICIÓN')
         self.mode_label.setStyleSheet('font-weight: bold;')
 
-        btn_home = QPushButton('⟲  Ir a cero')
-        btn_home.clicked.connect(self._on_home)
-        btn_stop = QPushButton('■  STOP')
-        btn_stop.setStyleSheet('background:#c0392b; color:white; font-weight:bold;')
-        btn_stop.clicked.connect(self.ros.stop)
-        self.btn_torque = QPushButton('Torque: ON')
-        self.btn_torque.setCheckable(True)
-        self.btn_torque.setChecked(True)
-        self.btn_torque.clicked.connect(self._on_torque)
+        btn_zero = QPushButton('ZERO')
+        btn_zero.setStyleSheet(
+            'font-size:18px; font-weight:bold; padding:8px 22px;')
+        btn_zero.clicked.connect(self._on_home)
+
+        self.btn_estop = QPushButton('⛔  E-STOP')
+        self.btn_estop.setStyleSheet(
+            'font-size:18px; font-weight:bold; padding:8px 22px;'
+            'background:#c0392b; color:white;')
+        self.btn_estop.clicked.connect(self._on_estop)
 
         top = QHBoxLayout()
+        top.addWidget(btn_zero)
+        top.addWidget(self.btn_estop)
+        top.addSpacing(24)
         top.addWidget(self.conn_label)
-        top.addSpacing(20)
+        top.addSpacing(12)
         top.addWidget(self.mode_label)
         top.addStretch(1)
-        top.addWidget(btn_home)
-        top.addWidget(self.btn_torque)
-        top.addWidget(btn_stop)
         top_w = QWidget()
         top_w.setLayout(top)
 
@@ -108,19 +109,22 @@ class MainWindow(QMainWindow):
             self.ros.relay_preview(state)
 
     def _on_home(self):
-        # En previsualización, «Ir a cero» solo mueve el modelo de RViz.
+        # En previsualización, «ZERO» solo mueve el modelo de RViz.
         if self.joint_tab.rb_preview.isChecked():
             self.joint_tab.preview_zero()
-            self.statusBar().showMessage('Ir a cero: solo modelo (previsualización).')
+            self.statusBar().showMessage('ZERO: solo modelo (previsualización).')
         else:
+            # Re-energiza (el bridge activa torque al salir de TEACH) y va a cero.
             self.ros.go_home()
             self.joint_tab.sliders_to_zero()
+            self._set_mode_label('POSICIÓN')
+            self.statusBar().showMessage('ZERO: re-energizando y moviendo a 0 rad.')
 
-    def _on_torque(self, checked):
-        self.ros.set_torque(checked)
-        self.btn_torque.setText('Torque: ON' if checked else 'Torque: OFF')
-        if not checked:
-            self._set_mode_label('TEACH (libre)')
+    def _on_estop(self):
+        self.ros.set_torque(False)
+        self._set_mode_label('⛔ APAGADO (E-STOP)')
+        self.statusBar().showMessage(
+            'E-STOP: robot desenergizado. Presiona ZERO para re-energizar.')
 
     def _set_mode_label(self, text):
         self.mode_label.setText(f'Modo: {text}')

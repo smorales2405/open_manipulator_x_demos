@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QGridLayout, QGroupBox, QHBoxLayout,
                              QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget)
 
 from .. import config
-from .circular_slider import CircularSlider
+from .circular_slider import CircularSlider, LinearSlider
 
 
 class JointTab(QWidget):
@@ -24,7 +24,7 @@ class JointTab(QWidget):
 
         # --- sliders -------------------------------------------------------
         self.sliders = {}
-        sliders_row = QHBoxLayout()
+        arm_row = QHBoxLayout()
         for i, name in enumerate(config.JOINT_NAMES):
             lo, hi = config.joint_limits()[name]
             notches = max(2, round(math.degrees(hi - lo) / 15.0))   # 1 marca cada 15°
@@ -33,18 +33,18 @@ class JointTab(QWidget):
                 lo, hi, fmt=lambda v: f'{math.degrees(v):+.1f}°', notches=notches)
             s.valueChanged.connect(self._on_change)
             self.sliders[name] = s
-            sliders_row.addWidget(s)
+            arm_row.addWidget(s)
 
         glo, ghi = sorted(config.GRIPPER_PRISMATIC)
-        gs = CircularSlider('Gripper\n[cerrado/abierto]', glo, ghi,
-                            fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %',
-                            notches=10)
+        gs = LinearSlider('Gripper  [cerrado ← → abierto]', glo, ghi,
+                          fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %')
         gs.valueChanged.connect(self._on_change)
         self.sliders['gripper'] = gs
-        sliders_row.addWidget(gs)
 
         sliders_box = QGroupBox('Sliders articulares')
-        sliders_box.setLayout(sliders_row)
+        sb_lay = QVBoxLayout(sliders_box)
+        sb_lay.addLayout(arm_row)
+        sb_lay.addWidget(gs)
 
         # --- modo en vivo / preview ---------------------------------------
         self.rb_live = QRadioButton('En vivo (comanda el robot real)')
