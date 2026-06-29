@@ -131,3 +131,9 @@ class JointTab(QWidget):
         for name in config.JOINT_NAMES:
             self.sliders[name].set_value_silent(0.0)
         self.ros.publish_preview([0.0, 0.0, 0.0, 0.0], self._gripper_m())
+
+    def sliders_to_zero(self):
+        """Mueve los sliders J1-J4 visualmente a 0° sin emitir comandos al robot.
+        Usado por «Ir a cero» en modo en vivo (el robot ya fue comandado por go_home)."""
+        for name in config.JOINT_NAMES:
+            self.sliders[name].set_value_silent(0.0)

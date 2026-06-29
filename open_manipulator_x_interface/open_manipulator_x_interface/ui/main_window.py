@@ -114,6 +114,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage('Ir a cero: solo modelo (previsualización).')
         else:
             self.ros.go_home()
+            self.joint_tab.sliders_to_zero()
 
     def _on_torque(self, checked):
         self.ros.set_torque(checked)
