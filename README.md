@@ -117,6 +117,22 @@ sudo apt install -y \
 sudo usermod -a -G dialout $USER   # cerrar sesión y volver a entrar para aplicar
 ```
 
+### 3.4. Latencia USB (solo hardware real)
+
+En Linux, el tiempo de latencia USB por defecto es **16 ms**, lo que limita la frecuencia de comunicación con los servos Dynamixel. Se recomienda reducirlo a **1 ms** antes de usar el robot:
+
+```bash
+ros2 run open_manipulator_x_bringup create_udev_rules
+```
+
+Este comando crea las reglas udev de ROBOTIS y configura la latencia a 1 ms automáticamente. Para verificar el valor actual en cualquier momento:
+
+```bash
+cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+```
+
+> **Nota:** Si tienes dos U2D2 conectados (maestro-esclavo), verifica también `ttyUSB1`.
+
 ---
 
 ## 4. Creación del workspace y clonación de repositorios
