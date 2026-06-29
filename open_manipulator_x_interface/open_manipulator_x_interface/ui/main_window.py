@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
         self.mode_label.setStyleSheet('font-weight: bold;')
 
         btn_home = QPushButton('⟲  Ir a cero')
-        btn_home.clicked.connect(self.ros.go_home)
+        btn_home.clicked.connect(self._on_home)
         btn_stop = QPushButton('■  STOP')
         btn_stop.setStyleSheet('background:#c0392b; color:white; font-weight:bold;')
         btn_stop.clicked.connect(self.ros.stop)
@@ -104,6 +104,14 @@ class MainWindow(QMainWindow):
         if not self.joint_tab.rb_preview.isChecked():
             self.ros.relay_preview(state)
 
+    def _on_home(self):
+        # En previsualización, «Ir a cero» solo mueve el modelo de RViz.
+        if self.joint_tab.rb_preview.isChecked():
+            self.joint_tab.preview_zero()
+            self.statusBar().showMessage('Ir a cero: solo modelo (previsualización).')
+        else:
+            self.ros.go_home()
+
     def _on_torque(self, checked):
         self.ros.set_torque(checked)
         self.btn_torque.setText('Torque: ON' if checked else 'Torque: OFF')
@@ -129,7 +137,7 @@ class MainWindow(QMainWindow):
         if not key_name:
             return super().keyPressEvent(event)
         if key_name == config.KEYMAP['home'].upper():
-            self.ros.go_home()
+            self._on_home()
             return
         if key_name == config.KEYMAP['stop'].upper():
             self.ros.stop()

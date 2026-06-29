@@ -13,9 +13,11 @@ from PyQt5.QtWidgets import QDial, QLabel, QVBoxLayout, QWidget
 class CircularSlider(QWidget):
     valueChanged = pyqtSignal(float)   # en las unidades de vmin/vmax
 
-    STEPS = 2000
+    # Pasos del dial por marca (notch). Da resolución fina dentro de cada marca,
+    # manteniendo una línea visible por marca (p. ej. cada 15°).
+    SUB = 30
 
-    def __init__(self, name, vmin, vmax, fmt=None, parent=None):
+    def __init__(self, name, vmin, vmax, fmt=None, notches=12, parent=None):
         super().__init__(parent)
         self.vmin = float(vmin)
         self.vmax = float(vmax)
@@ -25,8 +27,13 @@ class CircularSlider(QWidget):
         self.title.setAlignment(Qt.AlignCenter)
         self.title.setStyleSheet('font-weight: bold;')
 
+        # range = notches * SUB, con singleStep == pageStep == SUB hace que QDial
+        # dibuje exactamente una marca por cada SUB pasos (una marca por notch).
+        self.steps = max(self.SUB, int(notches) * self.SUB)
         self.dial = QDial()
-        self.dial.setRange(0, self.STEPS)
+        self.dial.setRange(0, self.steps)
+        self.dial.setSingleStep(self.SUB)
+        self.dial.setPageStep(self.SUB)
         self.dial.setNotchesVisible(True)
         self.dial.setWrapping(False)
         self.dial.setFixedSize(110, 110)
@@ -46,11 +53,11 @@ class CircularSlider(QWidget):
 
     # -- conversión ------------------------------------------------------
     def _to_value(self, step):
-        return self.vmin + (step / self.STEPS) * (self.vmax - self.vmin)
+        return self.vmin + (step / self.steps) * (self.vmax - self.vmin)
 
     def _to_step(self, value):
         value = max(self.vmin, min(self.vmax, value))
-        return int(round((value - self.vmin) / (self.vmax - self.vmin) * self.STEPS))
+        return int(round((value - self.vmin) / (self.vmax - self.vmin) * self.steps))
 
     # -- eventos ---------------------------------------------------------
     def _on_dial(self, step):

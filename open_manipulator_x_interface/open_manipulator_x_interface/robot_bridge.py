@@ -111,8 +111,7 @@ class RobotBridge(Node):
             return
         for i, name in enumerate(config.JOINT_NAMES):
             self.meas_arm[i] = config.arm_ticks_to_rad(name, ticks[config.DXL_IDS[name]])
-        grip_rad = config.gripper_ticks_to_motor_rad(ticks[config.GRIPPER_ID])
-        self.meas_grip_m = config.gripper_motor_rad_to_m(grip_rad)
+        self.meas_grip_m = config.gripper_ticks_to_m(ticks[config.GRIPPER_ID])
 
     # ====================================================================
     #  Lazo principal
@@ -136,9 +135,7 @@ class RobotBridge(Node):
             # El gripper conserva su comando (mantiene torque).
             if not self.sim:
                 self.driver.write_goal_ticks(
-                    {config.GRIPPER_ID:
-                     config.gripper_motor_rad_to_ticks(
-                         config.gripper_m_to_motor_rad(self.cmd_grip_m))})
+                    {config.GRIPPER_ID: config.gripper_m_to_ticks(self.cmd_grip_m)})
         else:
             # 3) Slew-limit (seguridad) y escritura de metas
             self._slew_toward_target()
@@ -146,8 +143,7 @@ class RobotBridge(Node):
                 goals = {}
                 for i, name in enumerate(config.JOINT_NAMES):
                     goals[config.DXL_IDS[name]] = config.arm_rad_to_ticks(name, self.cmd_arm[i])
-                goals[config.GRIPPER_ID] = config.gripper_motor_rad_to_ticks(
-                    config.gripper_m_to_motor_rad(self.cmd_grip_m))
+                goals[config.GRIPPER_ID] = config.gripper_m_to_ticks(self.cmd_grip_m)
                 self.driver.write_goal_ticks(goals)
 
         # 4) Publicar estado

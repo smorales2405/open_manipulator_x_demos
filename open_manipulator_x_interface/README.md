@@ -109,9 +109,11 @@ ros2 launch open_manipulator_x_interface interface.launch.py port_name:=/dev/tty
 - **Velocidad máxima / suavidad**: `MAX_JOINT_SPEED`, `PROFILE_VELOCITY`.
 - **Pasos de jog**: `CART_STEP_M`, `GRIPPER_STEP_M`.
 - **Teclas**: `KEYMAP`.
-- **Gripper**: `GRIPPER_PRISMATIC` / `GRIPPER_MOTOR_RANGE`.
-  > Calibra/verifica el gripper en el robot real la primera vez: si se mueve al
-  > revés, intercambia los valores de abierto/cerrado.
+- **Gripper**: calibración del motor en `GRIPPER_CLOSED_DEG` / `GRIPPER_OPEN_DEG`
+  (por defecto 40° / 160°, medidos con Dynamixel Wizard).
+  > Si el gripper se mueve al revés o no llega, ajusta esos dos ángulos.
+- **Sentido de giro**: `ENCODER_SIGN` (si una articulación gira al revés que el
+  modelo de RViz, invierte su signo).
 
 ---
 

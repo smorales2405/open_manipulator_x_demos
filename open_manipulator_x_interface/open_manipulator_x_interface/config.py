@@ -37,11 +37,13 @@ GRIPPER_ID = DXL_IDS['gripper']
 #   >>> EDITA AQUÍ para cambiar los límites del taller <<<
 # ---------------------------------------------------------------------------
 JOINT_LIMITS = {
-    'joint1': (-math.pi, math.pi),   # ±180°
-    'joint2': (-1.50, 1.50),         # ≈ ±86°
-    'joint3': (-1.50, 1.40),
-    'joint4': (-1.70, 1.97),
+    'joint1': (-math.radians(90), math.radians(90)),   # ±90°
+    'joint2': (-math.radians(90), math.radians(90)),   # ±90°
+    'joint3': (-math.radians(90), math.radians(90)),   # ±90°
+    'joint4': (-math.radians(90), math.radians(90)),   # ±90°
 }
+# Nota: J2 (±90°) y J3 (+90°) superan ligeramente los topes del URDF
+# (J2 ±85.9°, J3 +80.2°). Si el robot real choca, reduce estos valores aquí.
 
 # Límites "taller" más conservadores (opcional). Activar con USE_WORKSHOP_LIMITS.
 USE_WORKSHOP_LIMITS = False
@@ -71,25 +73,34 @@ def clamp_joint(name, value):
 #   NOTA: verifica/calibra en el robot real antes del taller. Si el gripper
 #   se mueve al revés, intercambia OPEN/CLOSE o cambia el signo.
 # ---------------------------------------------------------------------------
-GRIPPER_PRISMATIC = (-0.010, 0.019)        # (cerrado, abierto) [m]
-GRIPPER_MOTOR_RANGE = (0.92, -1.52)        # (cerrado, abierto) [rad motor]
+GRIPPER_PRISMATIC = (-0.010, 0.019)        # (cerrado, abierto) [m] — para RViz
 GRIPPER_CLOSED_M = GRIPPER_PRISMATIC[0]
 GRIPPER_OPEN_M = GRIPPER_PRISMATIC[1]
 
+# Calibración del MOTOR del gripper medida con Dynamixel Wizard en el robot real:
+#   cerrado = 40°, abierto = 160°  (ángulo ABSOLUTO del servo: 0° = tick 0,
+#   360° = 4096 ticks). Si el sentido o los topes no coinciden, ajusta aquí.
+GRIPPER_CLOSED_DEG = 40.0
+GRIPPER_OPEN_DEG = 160.0
+_GRIPPER_TICKS_PER_DEG = 4096.0 / 360.0
 
-def gripper_m_to_motor_rad(m):
-    """Apertura prismática [m] -> ángulo del motor del gripper [rad]."""
-    m0, m1 = GRIPPER_PRISMATIC
-    r0, r1 = GRIPPER_MOTOR_RANGE
-    m = max(min(m, max(m0, m1)), min(m0, m1))
-    return r0 + (m - m0) * (r1 - r0) / (m1 - m0)
+
+def _gripper_aperture(m):
+    """Apertura normalizada 0 (cerrado) .. 1 (abierto) a partir de metros."""
+    return (m - GRIPPER_CLOSED_M) / (GRIPPER_OPEN_M - GRIPPER_CLOSED_M)
 
 
-def gripper_motor_rad_to_m(rad):
-    """Ángulo del motor del gripper [rad] -> apertura prismática [m]."""
-    m0, m1 = GRIPPER_PRISMATIC
-    r0, r1 = GRIPPER_MOTOR_RANGE
-    return m0 + (rad - r0) * (m1 - m0) / (r1 - r0)
+def gripper_m_to_ticks(m):
+    """Apertura prismática [m] -> tick absoluto del motor del gripper."""
+    deg = GRIPPER_CLOSED_DEG + _gripper_aperture(m) * (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
+    return max(0, min(4095, int(round(deg * _GRIPPER_TICKS_PER_DEG))))
+
+
+def gripper_ticks_to_m(ticks):
+    """Tick absoluto del motor del gripper -> apertura prismática [m]."""
+    deg = int(ticks) * 360.0 / 4096.0
+    a = (deg - GRIPPER_CLOSED_DEG) / (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
+    return GRIPPER_CLOSED_M + a * (GRIPPER_OPEN_M - GRIPPER_CLOSED_M)
 
 
 def gripper_m_to_percent(m):
@@ -111,9 +122,10 @@ def gripper_percent_to_m(pct):
 POS_UNIT_RAD = 2.0 * math.pi / 4096.0       # rad por tick
 VEL_UNIT_RAD_S = 0.229 * 2.0 * math.pi / 60.0
 ZERO_TICK = 2048
-# Convención de la FK (hw_fkin_node.cpp): {+1,-1,-1,-1} para joint1..joint4
-ENCODER_SIGN = {'joint1': +1.0, 'joint2': -1.0, 'joint3': -1.0, 'joint4': -1.0}
-GRIPPER_ENCODER_SIGN = +1.0
+# Signo de cada articulación para que el robot REAL gire igual que el modelo de
+# RViz. J2/J3/J4 se invirtieron a +1 (antes -1) porque el robot real se movía en
+# sentido contrario al modelo. Si alguna vuelve a invertirse, cambia su signo aquí.
+ENCODER_SIGN = {'joint1': +1.0, 'joint2': +1.0, 'joint3': +1.0, 'joint4': +1.0}
 
 
 def _wrapped_tick_diff(raw, zero=ZERO_TICK):
@@ -134,13 +146,8 @@ def arm_rad_to_ticks(name, rad):
     return max(0, min(4095, t))
 
 
-def gripper_ticks_to_motor_rad(ticks):
-    return GRIPPER_ENCODER_SIGN * _wrapped_tick_diff(int(ticks)) * POS_UNIT_RAD
-
-
-def gripper_motor_rad_to_ticks(rad):
-    t = int(round(ZERO_TICK + GRIPPER_ENCODER_SIGN * rad / POS_UNIT_RAD))
-    return max(0, min(4095, t))
+# (La conversión del gripper m<->tick está arriba: gripper_m_to_ticks /
+#  gripper_ticks_to_m, calibrada con 40°/160° del Dynamixel Wizard.)
 
 
 # Tabla de control (XM430-W350), de hw_sinusoidal_torque_node.cpp

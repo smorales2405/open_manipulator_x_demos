@@ -127,27 +127,27 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
         dummy_mimic_fix:
-          Value: true
+          Value: false
         end_effector_link:
           Value: true
         gripper_left_link:
-          Value: true
+          Value: false
         gripper_right_link:
-          Value: true
+          Value: false
         link1:
           Value: true
         link2:
-          Value: true
+          Value: false
         link3:
-          Value: true
+          Value: false
         link4:
-          Value: true
+          Value: false
         link5:
-          Value: true
+          Value: false
         world:
-          Value: true
+          Value: false
       Marker Scale: 0.3499999940395355
       Name: TF
       Show Arrows: true

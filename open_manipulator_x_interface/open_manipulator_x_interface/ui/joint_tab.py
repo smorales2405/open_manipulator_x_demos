@@ -27,16 +27,18 @@ class JointTab(QWidget):
         sliders_row = QHBoxLayout()
         for i, name in enumerate(config.JOINT_NAMES):
             lo, hi = config.joint_limits()[name]
+            notches = max(2, round(math.degrees(hi - lo) / 15.0))   # 1 marca cada 15°
             s = CircularSlider(
                 f'J{i + 1}\n[{math.degrees(lo):.0f}°, {math.degrees(hi):.0f}°]',
-                lo, hi, fmt=lambda v: f'{math.degrees(v):+.1f}°')
+                lo, hi, fmt=lambda v: f'{math.degrees(v):+.1f}°', notches=notches)
             s.valueChanged.connect(self._on_change)
             self.sliders[name] = s
             sliders_row.addWidget(s)
 
         glo, ghi = sorted(config.GRIPPER_PRISMATIC)
         gs = CircularSlider('Gripper\n[cerrado/abierto]', glo, ghi,
-                            fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %')
+                            fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %',
+                            notches=10)
         gs.valueChanged.connect(self._on_change)
         self.sliders['gripper'] = gs
         sliders_row.addWidget(gs)
@@ -122,3 +124,10 @@ class JointTab(QWidget):
             self.sliders['gripper'].set_value_silent(self._last_state[config.GRIPPER_JOINT])
         if not self._is_live():
             self.ros.publish_preview(self._arm_q(), self._gripper_m())
+
+    def preview_zero(self):
+        """Pone los sliders del brazo a 0 y actualiza SOLO el modelo de RViz
+        (sin comandar el robot real). Usado por «Ir a cero» en previsualización."""
+        for name in config.JOINT_NAMES:
+            self.sliders[name].set_value_silent(0.0)
+        self.ros.publish_preview([0.0, 0.0, 0.0, 0.0], self._gripper_m())
