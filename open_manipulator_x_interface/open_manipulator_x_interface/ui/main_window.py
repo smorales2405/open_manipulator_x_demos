@@ -48,12 +48,12 @@ class MainWindow(QMainWindow):
         self.btn_estop.clicked.connect(self._on_estop)
 
         top = QHBoxLayout()
-        top.addWidget(btn_zero)
-        top.addWidget(self.btn_estop)
-        top.addSpacing(24)
         top.addWidget(self.conn_label)
         top.addSpacing(12)
         top.addWidget(self.mode_label)
+        top.addSpacing(24)
+        top.addWidget(btn_zero)
+        top.addWidget(self.btn_estop)
         top.addStretch(1)
         top_w = QWidget()
         top_w.setLayout(top)
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.addTab(self.joint_tab, 'Articular')
         self.tabs.addTab(self.cartesian_tab, 'Cartesiano')
-        self.tabs.addTab(self.teach_tab, 'Teach & Waypoints')
+        self.tabs.addTab(self.teach_tab, 'Secuencia')
         self._all_tabs = [self.joint_tab, self.cartesian_tab, self.teach_tab]
 
         self.telemetry = TelemetryPanel()

@@ -91,7 +91,7 @@ class TeachTab(QWidget):
         btn_loadf = QPushButton('📂 Cargar…')
         btn_savef.clicked.connect(self._save_file)
         btn_loadf.clicked.connect(self._load_file)
-        btn_stop = QPushButton('■  STOP  (detener sin desenergizar)')
+        btn_stop = QPushButton('■  Detener robot')
         btn_stop.setStyleSheet(
             'background:#c0392b; color:white; font-weight:bold; padding:8px;')
         btn_stop.clicked.connect(self.ros.stop)

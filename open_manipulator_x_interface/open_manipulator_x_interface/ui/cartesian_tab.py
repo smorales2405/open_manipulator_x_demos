@@ -14,7 +14,7 @@ import math
 
 import numpy as np
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout,
                              QLabel, QPushButton, QVBoxLayout, QWidget)
 
@@ -60,7 +60,7 @@ class CartesianTab(QWidget):
         self._mk_btn(grid, 'Y −  (D)', 1, 2, (0, -1, 0))
         self._mk_btn(grid, 'Z +  (Q)', 0, 3, (0, 0, +1))
         self._mk_btn(grid, 'Z −  (E)', 2, 3, (0, 0, -1))
-        jog_box = QGroupBox('Jog del efector (robot real)')
+        jog_box = QGroupBox('Movimiento del efector final')
         jog_box.setLayout(grid)
 
         # --- gripper -------------------------------------------------------
@@ -93,9 +93,23 @@ class CartesianTab(QWidget):
         self._refresh_target()
 
     def _mk_btn(self, grid, text, row, col, direction):
-        b = QPushButton(text)
-        b.setMinimumHeight(40)
-        b.setStyleSheet('font-weight: bold; font-size: 13px;')
+        # Separar "X +  (W)" → coord "X +" (negrita) y tecla "(W)" (normal)
+        if '(' in text:
+            coord, rest = text.split('(', 1)
+            key_str = f'({rest}'
+        else:
+            coord, key_str = text, ''
+        coord = coord.strip()
+        b = QPushButton()
+        b.setMinimumHeight(48)
+        lbl = QLabel(
+            f'<b style="font-size:13px">{coord}</b>'
+            f'&nbsp;&nbsp;<span style="font-size:11px; font-weight:normal;">{key_str}</span>')
+        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
+        inner = QVBoxLayout(b)
+        inner.setContentsMargins(2, 2, 2, 2)
+        inner.addWidget(lbl)
         b.clicked.connect(lambda: self._jog_once(direction))
         grid.addWidget(b, row, col)
 

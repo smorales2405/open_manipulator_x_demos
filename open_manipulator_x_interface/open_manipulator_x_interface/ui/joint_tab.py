@@ -41,10 +41,15 @@ class JointTab(QWidget):
         gs.valueChanged.connect(self._on_change)
         self.sliders['gripper'] = gs
 
+        gs.setMaximumWidth(200)
+        grip_row = QHBoxLayout()
+        grip_row.addWidget(gs)
+        grip_row.addStretch(1)
+
         sliders_box = QGroupBox('Sliders articulares')
         sb_lay = QVBoxLayout(sliders_box)
         sb_lay.addLayout(arm_row)
-        sb_lay.addWidget(gs)
+        sb_lay.addLayout(grip_row)
 
         # --- modo en vivo / preview ---------------------------------------
         self.rb_live = QRadioButton('En vivo (comanda el robot real)')
