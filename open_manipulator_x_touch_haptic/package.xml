@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>open_manipulator_x_touch_haptic</name>
+  <version>0.1.0</version>
+  <description>
+    Teleoperación cinemática del OpenMANIPULATOR-X con el Geomagic Touch
+    (3D Systems) como maestro. Dos modos: articular (mapea las articulaciones del
+    Touch a las del OM-X) y cartesiano (mapea la posición del stylus al efector,
+    vía IK). Los botones del stylus abren/cierran el gripper. Sin realimentación
+    háptica (solo cinemática). Reutiliza open_manipulator_x_interface (Dynamixel
+    SDK, cinemática, límites) y los topics del driver Geomagic (omni_msgs).
+  </description>
+  <maintainer email="smorales@utec.edu.pe">Sergio Morales</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>python3-pyqt5</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>dynamixel_sdk</exec_depend>
+  <exec_depend>omni_msgs</exec_depend>
+  <exec_depend>open_manipulator_x_interface</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
