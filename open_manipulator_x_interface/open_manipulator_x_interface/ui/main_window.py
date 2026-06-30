@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
             path = os.path.normpath(os.path.join(_res, fname))
             px = QPixmap(path)
             if not px.isNull():
-                lbl.setPixmap(px.scaledToHeight(48, Qt.SmoothTransformation))
+                lbl.setPixmap(px.scaledToHeight(62, Qt.SmoothTransformation))
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
 
         top = QHBoxLayout()
@@ -71,8 +71,9 @@ class MainWindow(QMainWindow):
         top.addWidget(self.btn_estop)
         top.addStretch(1)
         top.addWidget(lbl_utec)
-        top.addSpacing(10)
+        top.addSpacing(14)
         top.addWidget(lbl_meca)
+        top.addSpacing(30)
         top_w = QWidget()
         top_w.setLayout(top)
 
