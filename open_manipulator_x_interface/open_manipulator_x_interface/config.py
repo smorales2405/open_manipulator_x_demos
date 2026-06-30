@@ -117,16 +117,31 @@ def _gripper_aperture(m):
 
 
 def gripper_m_to_ticks(m):
-    """Apertura prismática [m] -> tick absoluto del motor del gripper."""
+    """Apertura prismática [m] -> tick absoluto del motor del gripper.
+
+    Los ángulos de calibración pueden ser negativos (p. ej. -50°), lo que indica
+    que el servo cruza el cero absoluto (0°/360°). Se normaliza con % 360 para
+    obtener siempre un tick válido [0, 4095].
+    """
     deg = GRIPPER_CLOSED_DEG + _gripper_aperture(m) * (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
-    return max(0, min(4095, int(round(deg * _GRIPPER_TICKS_PER_DEG))))
+    deg_abs = deg % 360.0                  # -50° → 310°, 160° → 160°
+    return max(0, min(4095, int(round(deg_abs * _GRIPPER_TICKS_PER_DEG))))
 
 
 def gripper_ticks_to_m(ticks):
-    """Tick absoluto del motor del gripper -> apertura prismática [m]."""
-    deg = int(ticks) * 360.0 / 4096.0
+    """Tick absoluto del motor del gripper -> apertura prismática [m].
+
+    Convierte el ángulo absoluto [0°, 360°) al dominio de la calibración,
+    centrando en el punto medio del rango para manejar cruces por 0°.
+    Ejemplo: calibración [-50°, 60°] → punto medio 5°; un tick que equivale
+    a 310° se interpreta como -50° (no como +310°).
+    """
+    deg_abs = int(ticks) * 360.0 / 4096.0           # [0, 360)
+    mid = (GRIPPER_CLOSED_DEG + GRIPPER_OPEN_DEG) / 2.0
+    delta = (deg_abs - (mid % 360.0) + 180.0) % 360.0 - 180.0
+    deg = mid + delta                                # dominio signado de la calibración
     a = (deg - GRIPPER_CLOSED_DEG) / (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
-    return GRIPPER_CLOSED_M + a * (GRIPPER_OPEN_M - GRIPPER_CLOSED_M)
+    return GRIPPER_CLOSED_M + max(0.0, min(1.0, a)) * (GRIPPER_OPEN_M - GRIPPER_CLOSED_M)
 
 
 def gripper_m_to_percent(m):
