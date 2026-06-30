@@ -43,7 +43,7 @@ class JointTab(QWidget):
         gs.valueChanged.connect(self._on_change)
         self.sliders['gripper'] = gs
 
-        gs.setMaximumWidth(200)
+        gs.setMaximumWidth(340)
         grip_row = QHBoxLayout()
         grip_row.addStretch(1)
         grip_row.addWidget(gs)

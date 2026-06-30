@@ -93,19 +93,39 @@ class LinearSlider(QWidget):
 
         self.title = QLabel(name)
         self.title.setAlignment(Qt.AlignCenter)
-        self.title.setStyleSheet('font-weight: bold;')
+        self.title.setStyleSheet('font-weight: bold; font-size: 13px;')
         self.title.setWordWrap(True)
 
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, self.STEPS)
+        self.slider.setMinimumHeight(36)
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 10px;
+                background: #cccccc;
+                border-radius: 5px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #4a86e8;
+                border-radius: 5px;
+            }
+            QSlider::handle:horizontal {
+                width: 24px;
+                height: 24px;
+                margin: -7px 0;
+                background: #2c5faa;
+                border-radius: 12px;
+            }
+        """)
         self.slider.valueChanged.connect(self._on_slider)
 
         self.value_label = QLabel()
         self.value_label.setAlignment(Qt.AlignCenter)
-        self.value_label.setStyleSheet('font-size: 14px;')
+        self.value_label.setStyleSheet('font-size: 15px; font-weight: bold;')
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(6)
         lay.addWidget(self.title)
         lay.addWidget(self.slider)
         lay.addWidget(self.value_label)
