@@ -15,4 +15,4 @@ robots:
   5: [ 40.0, 160.0]   # pendiente de calibrar
   6: [ 40.0, 160.0]   # pendiente de calibrar
   7: [ 40.0, 160.0]   # pendiente de calibrar
-  8: [-50.0,  60.0]   # calibrado
+  8: [230.0, 115.0]   # calibrado — NO usar [-50,60]: cruza límite 0°/4095 ticks y provoca giro

@@ -85,9 +85,21 @@ GRIPPER_OPEN_DEG = 160.0
 _GRIPPER_TICKS_PER_DEG = 4096.0 / 360.0
 
 
+def _deg_to_tick(deg: float) -> int:
+    """Convierte un ángulo del Dynamixel Wizard [°] a tick absoluto [0, 4095].
+    Maneja ángulos negativos: -50° → 310° → tick 3527."""
+    return max(0, min(4095, int(round((deg % 360.0) * _GRIPPER_TICKS_PER_DEG))))
+
+
+# Ticks precalculados: toda la interpolación se hace en espacio de ticks para
+# evitar discontinuidades al cruzar el límite 0°/360°.
+GRIPPER_CLOSED_TICK: int = _deg_to_tick(GRIPPER_CLOSED_DEG)   # 455
+GRIPPER_OPEN_TICK:   int = _deg_to_tick(GRIPPER_OPEN_DEG)     # 1820
+
+
 def load_robot_config(robot_id: int) -> None:
-    """Lee robot_gripper_cal.yaml y actualiza GRIPPER_CLOSED_DEG / GRIPPER_OPEN_DEG
-    para el robot_id dado.  Llamar antes de usar gripper_m_to_ticks / gripper_ticks_to_m."""
+    """Lee robot_gripper_cal.yaml y actualiza la calibración de gripper.
+    Llamar antes de usar gripper_m_to_ticks / gripper_ticks_to_m."""
     import os
     import yaml
 
@@ -104,11 +116,14 @@ def load_robot_config(robot_id: int) -> None:
         print(f'[config] robot_id={robot_id} no encontrado en calibración; '
               'usando valores por defecto.')
         return
-    global GRIPPER_CLOSED_DEG, GRIPPER_OPEN_DEG
-    GRIPPER_CLOSED_DEG = float(entry[0])
-    GRIPPER_OPEN_DEG   = float(entry[1])
-    print(f'[config] Robot ID {robot_id}: '
-          f'gripper cerrado={GRIPPER_CLOSED_DEG}°, abierto={GRIPPER_OPEN_DEG}°')
+    global GRIPPER_CLOSED_DEG, GRIPPER_OPEN_DEG, GRIPPER_CLOSED_TICK, GRIPPER_OPEN_TICK
+    GRIPPER_CLOSED_DEG  = float(entry[0])
+    GRIPPER_OPEN_DEG    = float(entry[1])
+    GRIPPER_CLOSED_TICK = _deg_to_tick(GRIPPER_CLOSED_DEG)
+    GRIPPER_OPEN_TICK   = _deg_to_tick(GRIPPER_OPEN_DEG)
+    print(f'[config] Robot ID {robot_id}: gripper '
+          f'cerrado={GRIPPER_CLOSED_DEG}° (tick {GRIPPER_CLOSED_TICK}), '
+          f'abierto={GRIPPER_OPEN_DEG}° (tick {GRIPPER_OPEN_TICK})')
 
 
 def _gripper_aperture(m):
@@ -117,30 +132,23 @@ def _gripper_aperture(m):
 
 
 def gripper_m_to_ticks(m):
-    """Apertura prismática [m] -> tick absoluto del motor del gripper.
-
-    Los ángulos de calibración pueden ser negativos (p. ej. -50°), lo que indica
-    que el servo cruza el cero absoluto (0°/360°). Se normaliza con % 360 para
-    obtener siempre un tick válido [0, 4095].
+    """Apertura prismática [m] -> tick del motor del gripper.
+    Interpola linealmente en espacio de ticks (sin pasar por grados) para evitar
+    discontinuidades al cruzar el límite 0°/360°.
     """
-    deg = GRIPPER_CLOSED_DEG + _gripper_aperture(m) * (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
-    deg_abs = deg % 360.0                  # -50° → 310°, 160° → 160°
-    return max(0, min(4095, int(round(deg_abs * _GRIPPER_TICKS_PER_DEG))))
+    a = _gripper_aperture(m)
+    tick = GRIPPER_CLOSED_TICK + a * (GRIPPER_OPEN_TICK - GRIPPER_CLOSED_TICK)
+    return max(0, min(4095, int(round(tick))))
 
 
 def gripper_ticks_to_m(ticks):
-    """Tick absoluto del motor del gripper -> apertura prismática [m].
-
-    Convierte el ángulo absoluto [0°, 360°) al dominio de la calibración,
-    centrando en el punto medio del rango para manejar cruces por 0°.
-    Ejemplo: calibración [-50°, 60°] → punto medio 5°; un tick que equivale
-    a 310° se interpreta como -50° (no como +310°).
+    """Tick del motor del gripper -> apertura prismática [m].
+    Interpolación inversa directamente en espacio de ticks.
     """
-    deg_abs = int(ticks) * 360.0 / 4096.0           # [0, 360)
-    mid = (GRIPPER_CLOSED_DEG + GRIPPER_OPEN_DEG) / 2.0
-    delta = (deg_abs - (mid % 360.0) + 180.0) % 360.0 - 180.0
-    deg = mid + delta                                # dominio signado de la calibración
-    a = (deg - GRIPPER_CLOSED_DEG) / (GRIPPER_OPEN_DEG - GRIPPER_CLOSED_DEG)
+    span = GRIPPER_OPEN_TICK - GRIPPER_CLOSED_TICK
+    if span == 0:
+        return GRIPPER_CLOSED_M
+    a = (int(ticks) - GRIPPER_CLOSED_TICK) / span
     return GRIPPER_CLOSED_M + max(0.0, min(1.0, a)) * (GRIPPER_OPEN_M - GRIPPER_CLOSED_M)
 
 
