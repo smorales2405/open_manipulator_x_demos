@@ -9,9 +9,11 @@ Disposición:
   - Barra inferior: mensajes de estado.
 """
 
+import os
 import time
 
 from PyQt5.QtCore import QEvent, Qt, QTimer
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (QHBoxLayout, QLabel, QMainWindow, QPushButton,
                              QTabWidget, QVBoxLayout, QWidget)
 
@@ -47,6 +49,19 @@ class MainWindow(QMainWindow):
             'background:#c0392b; color:white;')
         self.btn_estop.clicked.connect(self._on_estop)
 
+        # --- logos (esquina superior derecha) ---------------------------------
+        _res = os.path.join(os.path.dirname(__file__),
+                            '..', 'resources')
+        lbl_utec = QLabel()
+        lbl_meca = QLabel()
+        for lbl, fname in ((lbl_utec, 'utec_logo.png'),
+                           (lbl_meca, 'mecatronica_logo.png')):
+            path = os.path.normpath(os.path.join(_res, fname))
+            px = QPixmap(path)
+            if not px.isNull():
+                lbl.setPixmap(px.scaledToHeight(48, Qt.SmoothTransformation))
+            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+
         top = QHBoxLayout()
         top.addWidget(self.conn_label)
         top.addSpacing(12)
@@ -55,6 +70,9 @@ class MainWindow(QMainWindow):
         top.addWidget(btn_zero)
         top.addWidget(self.btn_estop)
         top.addStretch(1)
+        top.addWidget(lbl_utec)
+        top.addSpacing(10)
+        top.addWidget(lbl_meca)
         top_w = QWidget()
         top_w.setLayout(top)
 
