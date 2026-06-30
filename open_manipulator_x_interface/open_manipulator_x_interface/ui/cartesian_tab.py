@@ -80,15 +80,11 @@ class CartesianTab(QWidget):
         tl = QVBoxLayout(tgt_box)
         tl.addWidget(self.lbl_target)
 
-        self.btn_sync = QPushButton('⟳  Tomar pose actual del robot como objetivo')
-        self.btn_sync.clicked.connect(self.sync_to_robot)
-
         root = QVBoxLayout(self)
         root.addLayout(step_box)
         root.addWidget(jog_box)
         root.addWidget(grip_box)
         root.addWidget(tgt_box)
-        root.addWidget(self.btn_sync)
         root.addStretch(1)
         self._refresh_target()
 
@@ -146,16 +142,14 @@ class CartesianTab(QWidget):
 
     # ------------------------------------------------------------------
     def on_state(self, state):
-        # Mantiene una copia del estado por si el usuario sincroniza.
-        self._last_state = dict(state)
-
-    def sync_to_robot(self):
-        st = getattr(self, '_last_state', {})
-        q = [st.get(n, 0.0) for n in config.JOINT_NAMES]
-        self._q = np.asarray(q, dtype=float)
-        if config.GRIPPER_JOINT in st:
-            self._grip_m = st[config.GRIPPER_JOINT]
-        self._refresh_target()
+        # Actualiza la semilla de IK con la posición real del robot mientras no
+        # haya un jog activo, de modo que el jog siempre parte de donde está el robot.
+        if not self._held:
+            q = [state.get(n, 0.0) for n in config.JOINT_NAMES]
+            self._q = np.asarray(q, dtype=float)
+            if config.GRIPPER_JOINT in state:
+                self._grip_m = state[config.GRIPPER_JOINT]
+            self._refresh_target()
 
     # ------------------------------------------------------------------
     #  Jog continuo por teclado (mantener presionado)

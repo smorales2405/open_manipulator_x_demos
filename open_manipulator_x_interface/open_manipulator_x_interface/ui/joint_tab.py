@@ -8,6 +8,7 @@ Cinco sliders circulares (joint1..4 + gripper). Un conmutador permite intercalar
 """
 
 import math
+import time
 
 from PyQt5.QtWidgets import (QButtonGroup, QGridLayout, QGroupBox, QHBoxLayout,
                              QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget)
@@ -21,6 +22,7 @@ class JointTab(QWidget):
         super().__init__(parent)
         self.ros = ros
         self._last_state = {}
+        self._slider_active_until = 0.0   # cooldown: no auto-sync mientras el usuario mueve sliders
 
         # --- sliders -------------------------------------------------------
         self.sliders = {}
@@ -66,15 +68,11 @@ class JointTab(QWidget):
         self.btn_send.setEnabled(False)
         self.btn_send.setStyleSheet('font-weight: bold; padding: 8px;')
 
-        self.btn_sync = QPushButton('⟳  Sincronizar sliders con el robot')
-        self.btn_sync.clicked.connect(self.sync_to_robot)
-
         mode_box = QGroupBox('Modo')
         mode_lay = QGridLayout(mode_box)
         mode_lay.addWidget(self.rb_live, 0, 0)
         mode_lay.addWidget(self.rb_preview, 1, 0)
-        mode_lay.addWidget(self.btn_sync, 0, 1)
-        mode_lay.addWidget(self.btn_send, 1, 1)
+        mode_lay.addWidget(self.btn_send, 0, 1, 2, 1)   # ocupa las 2 filas
 
         self.hint = QLabel('En vivo: mover un slider mueve el robot. '
                            'Previsualizar: ajusta y pulsa «Enviar al robot real».')
@@ -98,6 +96,7 @@ class JointTab(QWidget):
         return self.rb_live.isChecked()
 
     def _on_change(self, _value):
+        self._slider_active_until = time.time() + 2.0   # bloquea auto-sync 2 s
         if self._is_live():
             self.ros.send_arm(self._arm_q())
             self.ros.send_gripper_m(self._gripper_m())
@@ -119,17 +118,15 @@ class JointTab(QWidget):
 
     # ------------------------------------------------------------------
     def on_state(self, state):
-        """Recibe el último /joint_states (lo guarda para 'sincronizar')."""
         self._last_state = dict(state)
-
-    def sync_to_robot(self):
-        for name in config.JOINT_NAMES:
-            if name in self._last_state:
-                self.sliders[name].set_value_silent(self._last_state[name])
-        if config.GRIPPER_JOINT in self._last_state:
-            self.sliders['gripper'].set_value_silent(self._last_state[config.GRIPPER_JOINT])
-        if not self._is_live():
-            self.ros.publish_preview(self._arm_q(), self._gripper_m())
+        # En modo en vivo, sincroniza sliders con el robot salvo que el usuario
+        # haya movido un slider recientemente (cooldown de 2 s).
+        if self._is_live() and time.time() > self._slider_active_until:
+            for name in config.JOINT_NAMES:
+                if name in state:
+                    self.sliders[name].set_value_silent(state[name])
+            if config.GRIPPER_JOINT in state:
+                self.sliders['gripper'].set_value_silent(state[config.GRIPPER_JOINT])
 
     def preview_zero(self):
         """Pone los sliders del brazo a 0 y actualiza SOLO el modelo de RViz
@@ -140,6 +137,7 @@ class JointTab(QWidget):
 
     def sliders_to_zero(self):
         """Mueve los sliders J1-J4 visualmente a 0° sin emitir comandos al robot.
-        Usado por «Ir a cero» en modo en vivo (el robot ya fue comandado por go_home)."""
+        Bloquea el auto-sync durante el tiempo de homing para que no "persigan" al robot."""
         for name in config.JOINT_NAMES:
             self.sliders[name].set_value_silent(0.0)
+        self._slider_active_until = time.time() + config.HOME_TIME_S + 0.5
