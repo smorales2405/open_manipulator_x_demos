@@ -36,13 +36,14 @@ class JointTab(QWidget):
             arm_row.addWidget(s)
 
         glo, ghi = sorted(config.GRIPPER_PRISMATIC)
-        gs = LinearSlider('Gripper  [cerrado ← → abierto]', glo, ghi,
+        gs = LinearSlider('Gripper\ncerrado  ←      →  abierto', glo, ghi,
                           fmt=lambda m: f'{config.gripper_m_to_percent(m):.0f} %')
         gs.valueChanged.connect(self._on_change)
         self.sliders['gripper'] = gs
 
         gs.setMaximumWidth(200)
         grip_row = QHBoxLayout()
+        grip_row.addStretch(1)
         grip_row.addWidget(gs)
         grip_row.addStretch(1)
 

@@ -94,6 +94,7 @@ class LinearSlider(QWidget):
         self.title = QLabel(name)
         self.title.setAlignment(Qt.AlignCenter)
         self.title.setStyleSheet('font-weight: bold;')
+        self.title.setWordWrap(True)
 
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, self.STEPS)
