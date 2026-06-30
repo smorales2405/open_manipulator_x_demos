@@ -125,8 +125,7 @@ class MasterSlaveNode(Node):
             goals = {ms.SLAVE_IDS[n]: omx.arm_rad_to_ticks(n, self.cmd_arm[i])
                      for i, n in enumerate(omx.JOINT_NAMES)}
             if self.mirror_gripper:
-                goals[ms.SLAVE_IDS['gripper']] = omx.gripper_motor_rad_to_ticks(
-                    omx.gripper_m_to_motor_rad(self.cmd_grip_m))
+                goals[ms.SLAVE_IDS['gripper']] = omx.gripper_m_to_ticks(self.cmd_grip_m)
             self.slave.write_goal_ticks(goals)
             arm, grip = self._read_arm(self.slave, ms.SLAVE_IDS)
             self.slave_state = (arm, grip) if arm is not None else self.slave_state
@@ -166,8 +165,7 @@ class MasterSlaveNode(Node):
         if ticks is None:
             return None, None
         arm = [omx.arm_ticks_to_rad(n, ticks[id_map[n]]) for n in omx.JOINT_NAMES]
-        grip = omx.gripper_motor_rad_to_m(
-            omx.gripper_ticks_to_motor_rad(ticks[id_map['gripper']]))
+        grip = omx.gripper_ticks_to_m(ticks[id_map['gripper']])
         return arm, grip
 
     # ====================================================================
