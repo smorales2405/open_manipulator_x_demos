@@ -31,6 +31,9 @@ class RosInterface(QObject):
         super().__init__()
         rclpy.init(args=None)
         self.node = Node('interface_gui')
+        self.node.declare_parameter('robot_id', 1)
+        robot_id = self.node.get_parameter('robot_id').get_parameter_value().integer_value
+        config.load_robot_config(robot_id)
 
         self.pub_cmd = self.node.create_publisher(
             JointState, config.TOPIC_JOINT_COMMAND, 10)

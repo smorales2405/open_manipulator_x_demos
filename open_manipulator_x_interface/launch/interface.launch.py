@@ -27,6 +27,7 @@ def generate_launch_description():
     sim = LaunchConfiguration('sim')
     port_name = LaunchConfiguration('port_name')
     use_rviz = LaunchConfiguration('rviz')
+    robot_id = LaunchConfiguration('robot_id')
 
     robot_description = Command([
         PathJoinSubstitution([FindExecutable(name='xacro')]), ' ',
@@ -47,13 +48,16 @@ def generate_launch_description():
                               description='Puerto del U2D2.'),
         DeclareLaunchArgument('rviz', default_value='true',
                               description='Lanzar RViz para el modelo preview.'),
+        DeclareLaunchArgument('robot_id', default_value='1',
+                              description='ID del robot (1-8). '
+                                          'Define la calibración del gripper.'),
 
         Node(
             package='open_manipulator_x_interface',
             executable='robot_bridge',
             name='robot_bridge',
             output='screen',
-            parameters=[{'sim': sim, 'port_name': port_name}],
+            parameters=[{'sim': sim, 'port_name': port_name, 'robot_id': robot_id}],
         ),
 
         Node(
@@ -79,5 +83,6 @@ def generate_launch_description():
             executable='interface_gui',
             name='interface_gui',
             output='screen',
+            parameters=[{'robot_id': robot_id}],
         ),
     ])

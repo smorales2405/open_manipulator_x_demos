@@ -45,8 +45,11 @@ class RobotBridge(Node):
         super().__init__('robot_bridge')
         self.declare_parameter('port_name', config.PORT)
         self.declare_parameter('sim', False)
+        self.declare_parameter('robot_id', 1)
         self.port_name = self.get_parameter('port_name').get_parameter_value().string_value
         self.sim = self.get_parameter('sim').get_parameter_value().bool_value
+        robot_id = self.get_parameter('robot_id').get_parameter_value().integer_value
+        config.load_robot_config(robot_id)
 
         # --- estado interno -------------------------------------------------
         self.mode = config.MODE_POSITION

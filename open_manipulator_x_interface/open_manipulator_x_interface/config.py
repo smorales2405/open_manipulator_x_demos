@@ -80,9 +80,35 @@ GRIPPER_OPEN_M = GRIPPER_PRISMATIC[1]
 # Calibración del MOTOR del gripper medida con Dynamixel Wizard en el robot real:
 #   cerrado = 40°, abierto = 160°  (ángulo ABSOLUTO del servo: 0° = tick 0,
 #   360° = 4096 ticks). Si el sentido o los topes no coinciden, ajusta aquí.
-GRIPPER_CLOSED_DEG = 40.0
+GRIPPER_CLOSED_DEG = 40.0    # actualizado por load_robot_config()
 GRIPPER_OPEN_DEG = 160.0
 _GRIPPER_TICKS_PER_DEG = 4096.0 / 360.0
+
+
+def load_robot_config(robot_id: int) -> None:
+    """Lee robot_gripper_cal.yaml y actualiza GRIPPER_CLOSED_DEG / GRIPPER_OPEN_DEG
+    para el robot_id dado.  Llamar antes de usar gripper_m_to_ticks / gripper_ticks_to_m."""
+    import os
+    import yaml
+
+    cal_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), '..', 'config', 'robot_gripper_cal.yaml'))
+    try:
+        with open(cal_path) as f:
+            data = yaml.safe_load(f) or {}
+        entry = data.get('robots', {}).get(int(robot_id))
+    except Exception as exc:
+        print(f'[config] No se pudo leer robot_gripper_cal.yaml: {exc}')
+        return
+    if entry is None:
+        print(f'[config] robot_id={robot_id} no encontrado en calibración; '
+              'usando valores por defecto.')
+        return
+    global GRIPPER_CLOSED_DEG, GRIPPER_OPEN_DEG
+    GRIPPER_CLOSED_DEG = float(entry[0])
+    GRIPPER_OPEN_DEG   = float(entry[1])
+    print(f'[config] Robot ID {robot_id}: '
+          f'gripper cerrado={GRIPPER_CLOSED_DEG}°, abierto={GRIPPER_OPEN_DEG}°')
 
 
 def _gripper_aperture(m):

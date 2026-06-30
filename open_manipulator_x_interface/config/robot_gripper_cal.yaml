@@ -1,0 +1,18 @@
+# Calibración del motor del gripper por robot ID
+# Medido con Dynamixel Wizard (ángulo absoluto del servo: 0° = tick 0, 360° = tick 4096)
+#
+# Formato:
+#   <id>: [cerrado_deg, abierto_deg]
+#
+# Edita este archivo para ajustar cada robot sin tocar el código Python.
+# Lanzar con:  ros2 launch ... interface.launch.py robot_id:=<id>
+
+robots:
+  1: [ 40.0, 160.0]   # calibrado
+  2: [ 40.0, 160.0]   # pendiente de calibrar
+  3: [ 40.0, 160.0]   # pendiente de calibrar
+  4: [ 40.0, 160.0]   # pendiente de calibrar
+  5: [ 40.0, 160.0]   # pendiente de calibrar
+  6: [ 40.0, 160.0]   # pendiente de calibrar
+  7: [ 40.0, 160.0]   # pendiente de calibrar
+  8: [-50.0,  60.0]   # calibrado
