@@ -13,9 +13,11 @@ puerto serie del OM-X.
 
 Modos (conmutables con /touch_haptic/mode)
 ------------------------------------------
-- joint     : mapea las articulaciones del Touch (waist, shoulder, elbow, pitch)
-              a (joint1..joint4) del OM-X, de forma incremental desde un "engage".
-- cartesian : mapea la posición XYZ del stylus a la posición del efector (IK).
+- joint     : mapea (absoluto) las articulaciones del Touch (waist, shoulder,
+              elbow, pitch) a (joint1..joint4) del OM-X.
+- cartesian : mapea la posición XYZ del stylus al efector Y la orientación
+              phi = J2+J3+J4 (misma fórmula que 'joint'); resuelve X,Y,Z,phi a la
+              vez con el Jacobiano 4x4 (OM-X de 4 GDL: sistema cuadrado).
 
 En ambos, los 2 botones del stylus abren/cierran el gripper.
 
@@ -251,38 +253,51 @@ class TouchHapticNode(Node):
     def _target_joint(self):
         """Mapeo absoluto articular Touch -> OM-X.
 
-        Cada articulación se calcula independientemente con su fórmula directa
-        (ver th_config.map_touch_joints_to_robot). El clamp es por articulación:
-        J1 usa los límites estándar del hardware; J2/J3/J4 usan ±JOINT_MODE_LIMIT
-        (±45°). Si el Touch supera el rango válido, la articulación afectada queda
-        en su límite mientras las demás siguen moviéndose con normalidad.
+        Delega en th.articular_joint_targets (fuente única del mapeo articular).
+        El clamp es por articulación: J1 usa los límites estándar del hardware;
+        J2/J3/J4 usan JOINT_MODE_LIMITS. Si el Touch supera el rango válido, la
+        articulación afectada queda en su límite mientras las demás siguen
+        moviéndose con normalidad.
         """
-        raw = th.map_touch_joints_to_robot(self.touch_q)
-        target = list(self.cmd_arm)
-        for i, name in enumerate(omx.JOINT_NAMES):
-            v = raw[name]
-            if name in th.JOINT_MODE_LIMITS:         # joint2/3/4: límite configurable
-                lim = th.JOINT_MODE_LIMITS[name]
-                target[i] = max(-lim, min(lim, v))
-            else:                                    # joint1: límites estándar ±π/2
-                target[i] = omx.clamp_joint(name, v)
-        return target
+        return th.articular_joint_targets(self.touch_q)
 
     def _target_cartesian(self):
-        """Mapeo de posición stylus -> efector, resuelto con IK incremental."""
+        """Posición del stylus -> efector (+ orientación), resuelto con IK.
+
+        Posición (x,y,z): desplazamiento del stylus relativo al engage, escalado.
+        Orientación (phi): con CART_INCLUDE_ORIENTATION se comanda phi = J2+J3+J4
+        usando la MISMA fórmula/escalamiento/límites del modo Articular
+        (th.articular_phi). Como el OM-X es de 4 GDL, (x,y,z,phi) se resuelven a
+        la vez con el Jacobiano 4x4, sin acople entre posición y orientación.
+        """
         delta_touch = [self.touch_pos[i] - self.engage_touch_pos[i] for i in range(3)]
         robot_delta = th.map_touch_delta_to_robot(delta_touch)
         # Reescala si el panel cambió cart_scale en caliente (vía parámetro).
         if self.cart_scale != th.CART_SCALE and th.CART_SCALE != 0.0:
             robot_delta = [d * self.cart_scale / th.CART_SCALE for d in robot_delta]
         desired = [self.engage_ee[i] + robot_delta[i] for i in range(3)]
-        cur_ee = fkin(self.cmd_arm)[:3]
-        dpose = [desired[i] - cur_ee[i] for i in range(3)]
-        q_new = ik_step(self.cmd_arm, dpose, hold_phi=th.CART_HOLD_PHI,
-                        damping=th.IK_DAMPING, max_dq=th.IK_MAX_DQ)
+        cur = fkin(self.cmd_arm)
+        dpose = [desired[i] - cur[i] for i in range(3)]
+
+        if th.CART_INCLUDE_ORIENTATION:
+            phi_des = th.articular_phi(self.touch_q)      # misma phi que articular
+            dphi = phi_des - cur[3]
+            q_new = ik_step(self.cmd_arm, dpose, damping=th.IK_DAMPING,
+                            max_dq=th.IK_MAX_DQ, dphi=dphi)
+        else:
+            q_new = ik_step(self.cmd_arm, dpose, hold_phi=th.CART_HOLD_PHI,
+                            damping=th.IK_DAMPING, max_dq=th.IK_MAX_DQ)
+
         if q_new is None:
             return list(self.cmd_arm)              # fuera de alcance: mantener
-        return [float(v) for v in q_new]
+        target = [float(v) for v in q_new]
+        # Mismos límites articulares que el modo Articular (J2/J3/J4).
+        if th.CART_APPLY_JOINT_MODE_LIMITS:
+            for i, name in enumerate(omx.JOINT_NAMES):
+                if name in th.JOINT_MODE_LIMITS:
+                    lim = th.JOINT_MODE_LIMITS[name]
+                    target[i] = max(-lim, min(lim, target[i]))
+        return target
 
     def _publish_robot(self):
         js = JointState()

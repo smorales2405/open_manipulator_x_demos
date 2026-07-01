@@ -25,9 +25,16 @@ posiciones (no se aplica fuerza).
 - **Articular** — mapea articulaciones del Touch → OM-X:
   `waist→joint1`, `shoulder→joint2`, `elbow→joint3`, `pitch (J5)→joint4`.
 - **Cartesiano** — mapea la posición **X, Y, Z del stylus** (centro de J5) a la
-  posición deseada del **efector**, resuelta con cinemática inversa
-  (`open_manipulator_x_interface/kinematics.ik_step`, solo posición, sin
-  orientación).
+  posición del **efector** Y comanda la **orientación** `phi = J2+J3+J4` con la
+  MISMA fórmula, escalamiento y límites del modo Articular. Como el OM-X es de
+  **4 GDL**, `(x, y, z, phi)` es un sistema **cuadrado**: se resuelven a la vez
+  con el Jacobiano 4×4 (`kinematics.ik_step`), sin acople entre posición y
+  orientación. En el interior del espacio de trabajo el seguimiento es exacto
+  (sub-mm y <0.1° en phi); cerca de los límites articulares (±45°/60°) el brazo
+  satura y la IK devuelve la mejor solución posible (las articulaciones se
+  quedan en su límite, igual que en el modo Articular). Ajustable en
+  `th_config.py`: `CART_INCLUDE_ORIENTATION` (poner `False` para dejar phi
+  libre) y `CART_APPLY_JOINT_MODE_LIMITS`.
 
 En ambos modos se usa un **"engage" (clutch)**: al habilitar (o cambiar de modo)
 se captura la pose actual de Touch y robot como referencia y se mapea el

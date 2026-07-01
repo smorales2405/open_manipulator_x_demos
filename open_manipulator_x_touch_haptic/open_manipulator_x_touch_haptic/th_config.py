@@ -75,7 +75,7 @@ _J4_PITCH_REF    = 3.0 * math.pi / 4    # offset de referencia pitch:    135°
 JOINT_MODE_LIMITS = {
     'joint2': math.radians(45.0),   # ±45°
     'joint3': math.radians(45.0),   # ±45°
-    'joint4': math.radians(45.0),   # ±45°
+    'joint4': math.radians(60.0),   # ±60°
 }
 
 
@@ -83,7 +83,7 @@ def map_touch_joints_to_robot(touch_q):
     """Mapeo absoluto Touch -> OM-X para el modo articular.
 
     Devuelve dict {om_name: rad} SIN clamp. El nodo aplica el clamp por
-    articulación: ±JOINT_MODE_LIMIT para J2/J3/J4, límites estándar para J1.
+    articulación: ±JOINT_MODE_LIMITS para J2/J3/J4, límites estándar para J1.
     """
     return {
         'joint1': touch_q.get('waist', 0.0),
@@ -92,18 +92,61 @@ def map_touch_joints_to_robot(touch_q):
         'joint4': touch_q.get('pitch', 0.0) + _J4_PITCH_REF,
     }
 
+
+def _clamp_joint_mode(name, value):
+    """Clampa J2/J3/J4 a su límite del modo articular (JOINT_MODE_LIMITS)."""
+    lim = JOINT_MODE_LIMITS[name]
+    return max(-lim, min(lim, value))
+
+
+def articular_joint_targets(touch_q):
+    """Objetivos articulares [q1,q2,q3,q4] (rad) del modo Articular, ya clampeados.
+
+    J1 usa los límites estándar del hardware (omx.clamp_joint); J2/J3/J4 usan
+    JOINT_MODE_LIMITS. Es la ÚNICA fuente del mapeo articular: la usan tanto el
+    modo Articular (posición de las 4 articulaciones) como el modo Cartesiano
+    (para derivar phi), de modo que la orientación se comanda idéntica en ambos.
+    """
+    raw = map_touch_joints_to_robot(touch_q)
+    return [
+        omx.clamp_joint('joint1', raw['joint1']),
+        _clamp_joint_mode('joint2', raw['joint2']),
+        _clamp_joint_mode('joint3', raw['joint3']),
+        _clamp_joint_mode('joint4', raw['joint4']),
+    ]
+
+
+def articular_phi(touch_q):
+    """Orientación phi = J2 + J3 + J4 con el MISMO mapeo/escalamiento/límites
+    del modo Articular. Es la orientación que comanda el modo Cartesiano."""
+    q = articular_joint_targets(touch_q)
+    return q[1] + q[2] + q[3]
+
 # ---------------------------------------------------------------------------
-# MODO CARTESIANO — mapeo posición stylus -> posición efector
-#   Cada eje del robot (x,y,z) se toma de un eje del Touch con un signo:
+# MODO CARTESIANO — posición del stylus -> posición del efector (+ orientación)
+#
+#   POSICIÓN: cada eje del robot (x,y,z) se toma de un eje del Touch con signo:
 #       robot_x  <-  +touch_y   (adelante)
 #       robot_y  <-  -touch_x   (izquierda = -derecha)
 #       robot_z  <-  +touch_z   (arriba)
 #   p_om = p_engage + CART_SCALE * (mapeo de (p_touch - p_touch_engage))
 #   >>> Si un eje va al revés, cambia su signo aquí. <<<
+#
+#   ORIENTACIÓN (para parecerse al modo Articular): con CART_INCLUDE_ORIENTATION
+#   se comanda phi = J2+J3+J4 usando EXACTAMENTE la fórmula, escalamiento y
+#   límites del modo Articular (articular_phi()). Como el OM-X es de 4 GDL,
+#   (x,y,z,phi) es un sistema cuadrado: se resuelven a la vez con el Jacobiano
+#   4x4, sin conflicto ni acople entre posición y orientación.
+#
+#   Con CART_APPLY_JOINT_MODE_LIMITS, el modo Cartesiano respeta además los
+#   MISMOS límites articulares (JOINT_MODE_LIMITS) que el Articular, para que el
+#   espacio de trabajo de ambos modos coincida.
 # ---------------------------------------------------------------------------
 CART_AXES = (('y', +1.0), ('x', -1.0), ('z', +1.0))   # robot (x, y, z) <- touch
 CART_SCALE = 2.0                      # sensibilidad Touch->robot (m/m)
-CART_HOLD_PHI = False                 # solo posición (sin orientación)
+CART_INCLUDE_ORIENTATION = True       # comanda phi = J2+J3+J4 (fórmula articular)
+CART_APPLY_JOINT_MODE_LIMITS = True   # usa los mismos límites que el modo articular
+CART_HOLD_PHI = False                 # (solo si CART_INCLUDE_ORIENTATION=False)
 IK_DAMPING = 0.05                     # amortiguación DLS del ik_step
 IK_MAX_DQ = 0.20                      # paso articular máx. por iteración [rad]
 

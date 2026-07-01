@@ -72,31 +72,45 @@ def within_limits(q, margin=0.0):
     return True
 
 
-def ik_step(q_seed, dpose, hold_phi=True, damping=0.02, max_dq=0.25):
+def ik_step(q_seed, dpose, hold_phi=True, damping=0.02, max_dq=0.25, dphi=None):
     """
     Un paso de IK incremental (DLS) para jog cartesiano.
 
     q_seed : configuración articular actual [rad] (semilla).
     dpose  : desplazamiento deseado del efector [dx, dy, dz] [m].
     hold_phi: si True, mantiene la orientación phi (target dphi = 0).
+    dphi   : si se indica (rad), comanda TAMBIÉN la orientación: resuelve la
+             pose completa [dx, dy, dz, dphi] con el Jacobiano 4x4 (control
+             X, Y, Z, phi simultáneo). Tiene prioridad sobre `hold_phi`.
+             Como el OM-X es de 4 GDL, (x, y, z, phi) es un sistema cuadrado:
+             los cuatro objetivos se resuelven a la vez sin redundancia.
 
     Devuelve la nueva q (recortada a límites) o None si el resultado quedaría
     fuera de límites o el cálculo es singular.
     """
     q_seed = np.asarray(q_seed, dtype=float)
-    target = np.array([dpose[0], dpose[1], dpose[2], 0.0])  # [dx,dy,dz,dphi]
-
     J = jacobian(q_seed)
-    if not hold_phi:
+
+    if dphi is not None:
+        # Pose completa: posición + orientación con el Jacobiano 4x4.
+        target = np.array([dpose[0], dpose[1], dpose[2], dphi])
+        JJt = J @ J.T + (damping ** 2) * np.eye(4)
+        try:
+            dq = J.T @ np.linalg.solve(JJt, target)
+        except np.linalg.LinAlgError:
+            return None
+    elif not hold_phi:
         # Solo posición: usa las 3 primeras filas (deja phi libre).
         Jp = J[0:3, :]
-        e = target[0:3]
+        e = np.array([dpose[0], dpose[1], dpose[2]])
         JJt = Jp @ Jp.T + (damping ** 2) * np.eye(3)
         try:
             dq = Jp.T @ np.linalg.solve(JJt, e)
         except np.linalg.LinAlgError:
             return None
     else:
+        # Posición + mantener phi (target dphi = 0).
+        target = np.array([dpose[0], dpose[1], dpose[2], 0.0])
         JJt = J @ J.T + (damping ** 2) * np.eye(4)
         try:
             dq = J.T @ np.linalg.solve(JJt, target)
