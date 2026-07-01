@@ -19,6 +19,8 @@ La base del OpenMANIPULATOR-X (kinematics.fkin) usa:
     x = adelante,  y = izquierda,  z = arriba
 """
 
+import math
+
 from open_manipulator_x_interface import config as omx
 
 # ---------------------------------------------------------------------------
@@ -40,19 +42,50 @@ TOPIC_PHANTOM_BUTTON = '/phantom/button'         # omni_msgs/OmniButtonEvent
 PHANTOM_JOINT_NAMES = ['waist', 'shoulder', 'elbow', 'yaw', 'pitch', 'roll']
 
 # ---------------------------------------------------------------------------
-# MODO ARTICULAR — mapeo Touch -> OM-X
-#   Cada fila: (articulación del Touch, articulación del OM-X, signo, ganancia)
-#   q_om = q_engage + signo * ganancia * (q_touch - q_touch_engage)
-#   Se captura una referencia ("engage") al habilitar, así NO hay saltos y no
-#   importan los offsets absolutos del Touch.
-#   >>> Si una articulación va al revés, cambia su SIGNO. <<<
+# MODO ARTICULAR — mapeo ABSOLUTO Touch -> OM-X
+#
+#   Fórmulas directas (no relativas al engage):
+#     joint1 = waist_TH                          límite estándar (±π/2)
+#     joint2 = π/2  − shoulder_TH                límite ±π/4 (±45°)
+#     joint3 = −elbow_TH                         límite ±π/4 (±45°)
+#     joint4 = pitch_TH + 3π/4                   límite ±π/4 (±45°)
+#
+#   Si el Touch supera el rango que mantiene el OM-X dentro del límite, esa
+#   articulación se queda en su límite (clamp independiente) mientras las
+#   demás siguen moviéndose. Al volver dentro del rango, la articulación
+#   retoma el seguimiento automáticamente.
+#
+#   JOINT_MAP solo se usa para la telemetría del panel (qué par Touch↔robot
+#   se muestra en cada fila). Para el mapeo real, usa map_touch_joints_to_robot().
 # ---------------------------------------------------------------------------
 JOINT_MAP = [
     ('waist',    'joint1', +1.0, 1.0),
-    ('shoulder', 'joint2', +1.0, 1.0),
-    ('elbow',    'joint3', +1.0, 1.0),
+    ('shoulder', 'joint2', -1.0, 1.0),
+    ('elbow',    'joint3', -1.0, 1.0),
     ('pitch',    'joint4', +1.0, 1.0),   # J5 del Touch -> joint4 del OM-X
 ]
+
+# Constantes de la transformación articular
+_J2_SHOULDER_REF = math.pi / 2          # offset de referencia shoulder: 90°
+_J4_PITCH_REF    = 3.0 * math.pi / 4    # offset de referencia pitch:    135°
+
+# Límite interior (±45°) para J2, J3, J4 en modo articular.
+# J1 usa los límites estándar del hardware (±90° en omx.clamp_joint).
+JOINT_MODE_LIMIT = math.pi / 4          # 45° en rad
+
+
+def map_touch_joints_to_robot(touch_q):
+    """Mapeo absoluto Touch -> OM-X para el modo articular.
+
+    Devuelve dict {om_name: rad} SIN clamp. El nodo aplica el clamp por
+    articulación: ±JOINT_MODE_LIMIT para J2/J3/J4, límites estándar para J1.
+    """
+    return {
+        'joint1': touch_q.get('waist', 0.0),
+        'joint2': _J2_SHOULDER_REF - touch_q.get('shoulder', 0.0),
+        'joint3': -touch_q.get('elbow', 0.0),
+        'joint4': touch_q.get('pitch', 0.0) + _J4_PITCH_REF,
+    }
 
 # ---------------------------------------------------------------------------
 # MODO CARTESIANO — mapeo posición stylus -> posición efector

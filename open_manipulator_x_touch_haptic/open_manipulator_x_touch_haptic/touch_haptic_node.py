@@ -249,13 +249,23 @@ class TouchHapticNode(Node):
         self._publish_robot()
 
     def _target_joint(self):
-        """Mapeo incremental articular Touch -> OM-X (desde el engage)."""
+        """Mapeo absoluto articular Touch -> OM-X.
+
+        Cada articulación se calcula independientemente con su fórmula directa
+        (ver th_config.map_touch_joints_to_robot). El clamp es por articulación:
+        J1 usa los límites estándar del hardware; J2/J3/J4 usan ±JOINT_MODE_LIMIT
+        (±45°). Si el Touch supera el rango válido, la articulación afectada queda
+        en su límite mientras las demás siguen moviéndose con normalidad.
+        """
+        raw = th.map_touch_joints_to_robot(self.touch_q)
         target = list(self.cmd_arm)
-        for ph_name, om_name, sign, gain in th.JOINT_MAP:
-            idx = omx.JOINT_NAMES.index(om_name)
-            d = self.touch_q[ph_name] - self.engage_touch_q[ph_name]
-            target[idx] = omx.clamp_joint(
-                om_name, self.engage_robot_q[idx] + sign * gain * d)
+        for i, name in enumerate(omx.JOINT_NAMES):
+            v = raw[name]
+            if i == 0:                               # joint1: límites estándar ±π/2
+                target[i] = omx.clamp_joint(name, v)
+            else:                                    # joint2/3/4: límite interior ±π/4
+                lim = th.JOINT_MODE_LIMIT
+                target[i] = max(-lim, min(lim, v))
         return target
 
     def _target_cartesian(self):
