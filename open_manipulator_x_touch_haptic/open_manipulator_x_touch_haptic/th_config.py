@@ -126,8 +126,8 @@ def articular_phi(touch_q):
 # MODO CARTESIANO — posición del stylus -> posición del efector (+ orientación)
 #
 #   POSICIÓN: cada eje del robot (x,y,z) se toma de un eje del Touch con signo:
-#       robot_x  <-  +touch_y   (adelante)
-#       robot_y  <-  -touch_x   (izquierda = -derecha)
+#       robot_x  <-  -touch_y   (adelante)
+#       robot_y  <-  +touch_x   (izquierda)
 #       robot_z  <-  +touch_z   (arriba)
 #   p_om = p_engage + CART_SCALE * (mapeo de (p_touch - p_touch_engage))
 #   >>> Si un eje va al revés, cambia su signo aquí. <<<
@@ -142,7 +142,7 @@ def articular_phi(touch_q):
 #   MISMOS límites articulares (JOINT_MODE_LIMITS) que el Articular, para que el
 #   espacio de trabajo de ambos modos coincida.
 # ---------------------------------------------------------------------------
-CART_AXES = (('y', +1.0), ('x', -1.0), ('z', +1.0))   # robot (x, y, z) <- touch
+CART_AXES = (('y', -1.0), ('x', +1.0), ('z', +1.0))   # robot (x, y, z) <- touch
 CART_SCALE = 2.0                      # sensibilidad Touch->robot (m/m)
 CART_INCLUDE_ORIENTATION = True       # comanda phi = J2+J3+J4 (fórmula articular)
 CART_APPLY_JOINT_MODE_LIMITS = True   # usa los mismos límites que el modo articular
