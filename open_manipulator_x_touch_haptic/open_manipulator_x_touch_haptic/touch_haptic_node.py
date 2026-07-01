@@ -261,11 +261,11 @@ class TouchHapticNode(Node):
         target = list(self.cmd_arm)
         for i, name in enumerate(omx.JOINT_NAMES):
             v = raw[name]
-            if i == 0:                               # joint1: límites estándar ±π/2
-                target[i] = omx.clamp_joint(name, v)
-            else:                                    # joint2/3/4: límite interior ±π/4
-                lim = th.JOINT_MODE_LIMIT
+            if name in th.JOINT_MODE_LIMITS:         # joint2/3/4: límite configurable
+                lim = th.JOINT_MODE_LIMITS[name]
                 target[i] = max(-lim, min(lim, v))
+            else:                                    # joint1: límites estándar ±π/2
+                target[i] = omx.clamp_joint(name, v)
         return target
 
     def _target_cartesian(self):

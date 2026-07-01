@@ -69,9 +69,14 @@ JOINT_MAP = [
 _J2_SHOULDER_REF = math.pi / 2          # offset de referencia shoulder: 90°
 _J4_PITCH_REF    = 3.0 * math.pi / 4    # offset de referencia pitch:    135°
 
-# Límite interior (±45°) para J2, J3, J4 en modo articular.
-# J1 usa los límites estándar del hardware (±90° en omx.clamp_joint).
-JOINT_MODE_LIMIT = math.pi / 4          # 45° en rad
+# Límites interiores para J2, J3, J4 en modo articular (±grados → ±rad).
+# J1 usa los límites estándar del hardware (±90° via omx.clamp_joint).
+# >>> Edita estos valores para ajustar el rango de cada articulación. <<<
+JOINT_MODE_LIMITS = {
+    'joint2': math.radians(45.0),   # ±45°
+    'joint3': math.radians(45.0),   # ±45°
+    'joint4': math.radians(45.0),   # ±45°
+}
 
 
 def map_touch_joints_to_robot(touch_q):
