@@ -36,8 +36,8 @@ Sub  /phantom/button         (omni_msgs/OmniButtonEvent)      botones del stylus
 Sub  /touch_haptic/mode      (std_msgs/String)  "joint" | "cartesian"
 Sub  /touch_haptic/gripper_cmd (std_msgs/String)  "open" | "close" (manual, panel)
 Pub  /touch_haptic/robot_joint_states (sensor_msgs/JointState) estado del OM-X
-Srv  /touch_haptic/enable    (std_srvs/SetBool)   habilita/pausa el espejo
-Srv  /touch_haptic/stop      (std_srvs/Trigger)   E-STOP: pausa + congela
+Srv  /touch_haptic/enable    (std_srvs/SetBool)   habilita (torque ON + engage) / pausa (torque ON, congelado)
+Srv  /touch_haptic/stop      (std_srvs/Trigger)   E-STOP: torque OFF, sigue leyendo encoders
 """
 
 import rclpy
@@ -99,12 +99,14 @@ class TouchHapticNode(Node):
 
         # --- driver Dynamixel ---------------------------------------------
         self.driver = None
+        self.torque_on = False          # True cuando los motores tienen torque ON
         if not self.sim:
             from open_manipulator_x_interface.dxl_driver import DynamixelDriver
             self.driver = DynamixelDriver(self.robot_port,
                                           ids=list(th.ROBOT_IDS.values()))
             self.driver.connect()
             self.driver.setup_all_position()
+            self.torque_on = True
             self._read_measured()
             self.cmd_arm = list(self.meas_arm)
             self.cmd_grip_m = self.meas_grip_m
@@ -113,6 +115,7 @@ class TouchHapticNode(Node):
                 f'OM-X conectado en {self.robot_port} (IDs '
                 f'{list(th.ROBOT_IDS.values())}).')
         else:
+            self.torque_on = True       # en sim no hay motores reales; siempre "ON"
             self.get_logger().warn('MODO SIMULACIÓN (--sim): no se abre el puerto '
                                    'del OM-X; el estado del robot es un eco.')
 
@@ -235,8 +238,8 @@ class TouchHapticNode(Node):
         max_grip = omx.MAX_GRIPPER_SPEED_M * self.dt
         self.cmd_grip_m += _clip(self.target_grip_m - self.cmd_grip_m, max_grip)
 
-        # 4) Escribir al robot
-        if not self.sim:
+        # 4) Escribir al robot (solo si los motores tienen torque ON)
+        if not self.sim and self.torque_on:
             goals = {th.ROBOT_IDS[n]: omx.arm_rad_to_ticks(n, self.cmd_arm[i])
                      for i, n in enumerate(omx.JOINT_NAMES)}
             goals[th.ROBOT_IDS['gripper']] = omx.gripper_m_to_ticks(self.cmd_grip_m)
@@ -285,6 +288,16 @@ class TouchHapticNode(Node):
     def _srv_enable(self, request, response):
         on = bool(request.data)
         if on:
+            # Si el torque estaba OFF (tras E-STOP), re-energizar primero.
+            if not self.sim and self.driver is not None and not self.torque_on:
+                try:
+                    self.driver.setup_all_position()
+                    self.torque_on = True
+                    self.get_logger().info('Torque ON: motores re-energizados.')
+                except Exception as exc:
+                    response.success = False
+                    response.message = f'Error al re-energizar los motores: {exc}'
+                    return response
             if not self._capture_engage():
                 response.success = False
                 response.message = ('No hay datos del Touch todavía: lanza el driver '
@@ -292,22 +305,31 @@ class TouchHapticNode(Node):
                 return response
             self.cmd_arm = list(self.meas_arm)     # arranca desde la pose real
             self.enabled = True
-            self.get_logger().info('Espejo HABILITADO: el OM-X sigue al Touch.')
+            self.get_logger().info('Espejo HABILITADO: torque ON, el OM-X sigue al Touch.')
         else:
             self.enabled = False
             self.cmd_arm = list(self.meas_arm)
-            self.get_logger().info('Espejo PAUSADO: el OM-X se congela.')
+            self.get_logger().info('Espejo PAUSADO: robot congelado, torque ON.')
         response.success = True
         response.message = f'Espejo {"ON" if on else "OFF"} (modo {self.mode}).'
         return response
 
     def _srv_stop(self, request, response):
+        """E-STOP: deshabilita el espejo y apaga el torque de todos los motores."""
         self.enabled = False
         self._read_measured()
         self.cmd_arm = list(self.meas_arm)
         self.target_grip_m = self.cmd_grip_m
+        if not self.sim and self.driver is not None:
+            for dxl_id in self.driver.ids:
+                try:
+                    self.driver.set_torque(dxl_id, False)
+                except Exception:
+                    pass
+            self.torque_on = False
+            self.get_logger().info('E-STOP: torque OFF en todos los motores.')
         response.success = True
-        response.message = 'E-STOP: espejo pausado, robot congelado.'
+        response.message = 'E-STOP: espejo pausado, robot desenergizado (torque OFF).'
         return response
 
     def destroy_node(self):
